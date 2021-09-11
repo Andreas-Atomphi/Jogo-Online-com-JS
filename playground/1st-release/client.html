@@ -1,0 +1,119 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Primeiro jogo multiplayer em JS</title>
+        <style>
+            #screen {
+                width: 500;
+                height: 500;
+                image-rendering: crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: -moz-crisp-edges;
+                border: 10px solid #ccc; 
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="screen" width="10" height="10"></canvas>
+    </body>
+    <script>
+        /** @type {HTMLCanvasElement} */
+        const screen = document.querySelector('#screen')
+        /** @tyle {CanvasRenderingContext2D}*/
+        const ctx = screen.getContext('2d')
+        const currentPlayer = 'player1'
+        const state = {
+            players: {
+                'player1':{
+                    x: 0,
+                    y: 0
+                },
+                'player2':{
+                    x:9,
+                    y:9
+                }
+            },
+            fruits: {
+                'fruit1': {
+                    x:0,
+                    y:0
+                },
+                'fruit2': {
+                    x:0,
+                    y:0
+                }
+            }
+        }
+        
+        const game = createGame()
+        const keyboardListener = createKeyboardListener()
+
+        keyboardListener.subscribe(game.movePlayer)
+
+        function createGame(){
+            function movePlayer(command){
+                console.log(`Moving ${command.playerId} with ${command.keyPressed}`)
+                const player = game.state.players[command.playerId]
+                const keyPressed = command.keyPressed
+                player.x += -(keyPressed == 'ArrowLeft') + (keyPressed == 'ArrowRight')
+                player.y += -(keyPressed == 'ArrowUp') + (keyPressed == 'ArrowDown')
+                player.x = Math.max(0, Math.min(screen.width - 1, player.x))
+                player.y = Math.max(0, Math.min(screen.height - 1, player.y))
+                //console.log(player)
+            }
+
+            return {
+                movePlayer,
+                state
+            }
+        }
+        function createKeyboardListener(){
+            
+            const state = {
+                observers: []
+            }
+
+            function subscribe(observerFunction){
+                state.observers.push(observerFunction)
+            }
+
+            function notifyAll (command){
+                console.log(`Notifying ${state.observers.length} observers`)
+
+                for (const obsFunc of state.observers){
+                    obsFunc(command)
+                }
+            }
+            
+            document.addEventListener('keydown', handleKeyDown)
+
+            function handleKeyDown(kevt){
+                const keyPressed = kevt.key
+                const command = {
+                    playerId: currentPlayer,
+                    keyPressed: kevt.key
+                }
+                notifyAll(command)
+            }
+            return {
+                subscribe
+            }
+        }
+
+        renderScreen()
+        function renderScreen(){
+            ctx.clearRect(0, 0, screen.width, screen.height);
+            for (const playerId in game.state.players){
+                const player = game.state.players[playerId]
+                ctx.fillStyle = 'black'
+                ctx.fillRect(player.x, player.y, 1, 1)
+            }
+            for (const fruitId in game.state.fruits){
+                const fruit = game.state.fruits[fruitId]
+                ctx.fillStyle = 'blue'
+                ctx.fillRect(fruit.x, fruit.y, 1, 1)
+            }
+            requestAnimationFrame(renderScreen)
+        }
+    </script>
+</html>
