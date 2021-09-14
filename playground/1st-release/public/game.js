@@ -1,111 +1,25 @@
-export class GObject{
-    updatable = false
-    update(delta) { }
-    input(command) { }
-    events = { "entered": [], "ready": [], "exited": [] }
-    connect(event, callback) {
-        this.events[event].push(callback)
-    }
-
-    emitEvent(event) {
-        for (fn of this.events[event])
-            fn()
-    }
-
-    newEvents(...args) {
-        if (args.length == 1) {
-            this.events[args[0]] = []
-            return
-        }
-        for (i of args) {
-            this.events[i] = []
-        }
-    }
-}
-
-export class Timer extends GObject{
-    constructor(timeLeft) {
-        this.timeLeft = timeLeft
-        this.newEvents('timeout')
-    }
-    start(timeLeft = this.timeLeft) {
-        this.updatable = true
-        this.timeLeft = timeLeft
-    }
-
-    update(delta) {
-        this.timeLeft -= delta
-        if (this.timeLeft <= 0) {
-            this.emitEvent('timeout')
-            this.updatable = false
-            this.timeLeft = 0
-        }
-    }
-
-}
-
-export class Player extends GObject{
-    /**
-     * 
-     * @param {Number} x 
-     * @param {Number} y 
-     * @param {Number} width 
-     * @param {Number} height 
-     * @param {Number} speedX
-     * @param {Number} speedY
-     */
-    constructor(x, y, width, height, speedX, speedY){
-        this.x = x
-        this.y = y
-        this.width = width
-        this.height = height
-        this.speedX = speedX
-        this.speedY = speedY
-    }
-
-    /** @param {{x, y}} pos */
-    set position(pos){
-        this.x = pos.x
-        this.y = pos.y
-    }
-
-    /**@param {{w, h}} size */
-    set size(size){
-        this.width = size.w
-        this.height = size.h
-    }
-
-    /**@param {{x, y}} speed */
-    set speed(speed) {
-        const max = 20
-        const sp = Math.min(max, Math.max(-max, sp))
-        this.speedX = speed.x
-        this.speedY = speed.y
-    }
-    
-    input(command) {
-        console.log(command)
-    }
-}
-
 export default function createGame() {
     const state = {
-        fps: 60,
+        fps: 20,
         players: {},
         fruits: {},
         screen: {
-            width: 480,
-            height: 480
+            width: 10,
+            height: 10
         },
         tree: []
     }
+    console.log(state.players)
     function movePlayer(command){
         const player = state.players[command.playerId]
         if (player){
             notifyAll(command)
             console.log(`Moving ${command.playerId} with ${command.keyPressed}`)
             const keyPressed = command.keyPressed
-            player.input(command)
+            player.x += -(keyPressed == 'ArrowLeft') + (keyPressed == 'ArrowRight')
+            player.y += -(keyPressed == 'ArrowUp') + (keyPressed == 'ArrowDown')
+            player.x = Math.min(state.screen.width-1, Math.max(0, player.x))
+            player.y = Math.min(state.screen.height-1, Math.max(0, player.y))
             checkForFruitCollision(command.playerId)
         }
         //console.log(player)
@@ -123,7 +37,10 @@ export default function createGame() {
 
         state.players[playerId] = {
             x: playerX,
-            y: playerY
+            y: playerY,
+            update: function(dt){
+                console.log(dt)
+            }
         }
         notifyAll({
             type: 'add-player',
@@ -196,18 +113,26 @@ export default function createGame() {
         }
     }
 
+    let lastFrameTimeStamp
     function start(){
-        update()
+        //update()
+        //lastFrameTimeStamp = Date.now()
+        setTimeout(addFruitFreq, 5000)
+        function addFruitFreq(){
+            if (Object.values(state.fruits).length < 10){
+                addFruit()
+                setTimeout(addFruitFreq, 5000)
+            }
+        }
     }
-    var lastFrameTimeStamp = new Date().getTime()
     const update = () => {
-        const up = (new Date().getTime() - lastFrameTimeStamp);
+        const up = (Date.now() - lastFrameTimeStamp);
         for (gobj of state.tree) {
+            lastFrameTimeStamp = Date.now()
             if (gobj.updatable)
                 gobj.update(up)
         }
-        lastFrameTimeStamp = new Date().getTime()
-        setInterval(update, 1000 / state.fps)
+        setTimeout(update, 1000/state.fps)
     }
 
     return {
