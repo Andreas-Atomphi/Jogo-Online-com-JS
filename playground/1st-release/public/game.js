@@ -1,11 +1,103 @@
-export default function createGame(){
+export class GObject{
+    updatable = false
+    update(delta) { }
+    input(command) { }
+    events = { "entered": [], "ready": [], "exited": [] }
+    connect(event, callback) {
+        this.events[event].push(callback)
+    }
+
+    emitEvent(event) {
+        for (fn of this.events[event])
+            fn()
+    }
+
+    newEvents(...args) {
+        if (args.length == 1) {
+            this.events[args[0]] = []
+            return
+        }
+        for (i of args) {
+            this.events[i] = []
+        }
+    }
+}
+
+export class Timer extends GObject{
+    constructor(timeLeft) {
+        this.timeLeft = timeLeft
+        this.newEvents('timeout')
+    }
+    start(timeLeft = this.timeLeft) {
+        this.updatable = true
+        this.timeLeft = timeLeft
+    }
+
+    update(delta) {
+        this.timeLeft -= delta
+        if (this.timeLeft <= 0) {
+            this.emitEvent('timeout')
+            this.updatable = false
+            this.timeLeft = 0
+        }
+    }
+
+}
+
+export class Player extends GObject{
+    /**
+     * 
+     * @param {Number} x 
+     * @param {Number} y 
+     * @param {Number} width 
+     * @param {Number} height 
+     * @param {Number} speedX
+     * @param {Number} speedY
+     */
+    constructor(x, y, width, height, speedX, speedY){
+        this.x = x
+        this.y = y
+        this.width = width
+        this.height = height
+        this.speedX = speedX
+        this.speedY = speedY
+    }
+
+    /** @param {{x, y}} pos */
+    set position(pos){
+        this.x = pos.x
+        this.y = pos.y
+    }
+
+    /**@param {{w, h}} size */
+    set size(size){
+        this.width = size.w
+        this.height = size.h
+    }
+
+    /**@param {{x, y}} speed */
+    set speed(speed) {
+        const max = 20
+        const sp = Math.min(max, Math.max(-max, sp))
+        this.speedX = speed.x
+        this.speedY = speed.y
+    }
+    
+    input(command) {
+        console.log(command)
+    }
+}
+
+export default function createGame() {
     const state = {
+        fps: 60,
         players: {},
         fruits: {},
         screen: {
-            width: 10,
-            height: 10
-        }
+            width: 480,
+            height: 480
+        },
+        tree: []
     }
     function movePlayer(command){
         const player = state.players[command.playerId]
@@ -13,10 +105,7 @@ export default function createGame(){
             notifyAll(command)
             console.log(`Moving ${command.playerId} with ${command.keyPressed}`)
             const keyPressed = command.keyPressed
-            player.x += -(keyPressed == 'ArrowLeft') + (keyPressed == 'ArrowRight')
-            player.y += -(keyPressed == 'ArrowUp') + (keyPressed == 'ArrowDown')
-            player.x = Math.max(0, Math.min(state.screen.width - 1, player.x))
-            player.y = Math.max(0, Math.min(state.screen.height - 1, player.y))
+            player.input(command)
             checkForFruitCollision(command.playerId)
         }
         //console.log(player)
@@ -108,13 +197,17 @@ export default function createGame(){
     }
 
     function start(){
-        const freq = 2000
-        setInterval(()=>{
-            if (Object.values(state.fruits).length < 10)
-            {
-                addFruit()
-            }
-        }, freq)
+        update()
+    }
+    var lastFrameTimeStamp = new Date().getTime()
+    const update = () => {
+        const up = (new Date().getTime() - lastFrameTimeStamp);
+        for (gobj of state.tree) {
+            if (gobj.updatable)
+                gobj.update(up)
+        }
+        lastFrameTimeStamp = new Date().getTime()
+        setInterval(update, 1000 / state.fps)
     }
 
     return {
